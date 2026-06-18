@@ -1,5 +1,38 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, screen, desktopCapturer, clipboard, nativeImage } = require('electron')
+const { app, BrowserWindow, globalShortcut, ipcMain, screen, desktopCapturer, clipboard, nativeImage, Tray, Menu } = require('electron')
+
 const path = require('path')
+
+
+let tray = null
+
+function createTray() {
+  const icon = nativeImage.createFromDataURL(
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAADASURBVDiNpZIxDoMwDEWfK3ASuEJ7KA7U0AP0Lj0Gp2DhCAxISBzEpf//XZoKpWribP2RHX87BoBpmg5mth8R8QRwAHpmdk7vjHNucs4NABhjHgBWAO+cuwAAzrkLgBXA2RiTZuAFQGuttQDMOfcuAN57D6AH0BpjOgAFkDMzsQVgZtZaSwDknFsBJAC01uoA0HtfAbQAemttBVABMMYUgABIKaUK0HtfKKWUFaBt2wLQ3vsIoAfQWWsLoBERIf9+AI+iDu8fGy90AAAAAElFTkSuQmCC'
+  )
+
+  tray = new Tray(icon)
+  tray.setToolTip('PXL')
+
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'Capture (Ctrl+Shift+X)',
+      click: () => createOverlay()
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit PXL',
+      click: () => app.quit()
+    }
+  ])
+
+  tray.setContextMenu(menu)
+
+  tray.on('click', () => {
+    createOverlay()
+  })
+}
+
+
 
 let overlayWindow = null
 let annotateWindow = null
@@ -50,6 +83,7 @@ app.whenReady().then(() => {
   // keep app running with a hidden main window
   const hidden = new BrowserWindow({ show: false })
   hidden.loadURL('http://localhost:5173')
+  createTray()
 
   globalShortcut.register('CommandOrControl+Shift+X', () => {
     if (overlayWindow) {
@@ -85,11 +119,41 @@ app.whenReady().then(() => {
     return 'done'
   })
 
-  ipcMain.handle('copy-image', async (event, dataURL) => {
-    const image = nativeImage.createFromDataURL(dataURL)
-    clipboard.writeImage(image)
-    return 'done'
+  function createToast() {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+
+  const toast = new BrowserWindow({
+    width: 260,
+    height: 60,
+    x: width - 280,
+    y: height - 80,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    focusable: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true
+    }
   })
+
+  toast.loadURL('http://localhost:5173/#toast')
+
+  setTimeout(() => {
+    if (!toast.isDestroyed()) toast.close()
+  }, 2000)
+}
+
+
+
+    ipcMain.handle('copy-image', async (event, dataURL) => {
+      const image = nativeImage.createFromDataURL(dataURL)
+      clipboard.writeImage(image)
+      createToast()
+      return 'done'
+    })
 
   ipcMain.on('close-annotate', () => {
     if (annotateWindow) {
@@ -102,3 +166,9 @@ app.whenReady().then(() => {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
 })
+
+app.on('window-all-closed', (e) => {
+  e.preventDefault()
+})
+
+

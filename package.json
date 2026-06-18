@@ -8,17 +8,37 @@
     "build": "vite build && electron-builder",
     "preview": "vite preview"
   },
-  "build": {
-    "appId": "com.pxl.app",
-    "productName": "pxl",
-    "win": {
-      "target": "nsis"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*"
-    ]
+
+
+"build": {
+  "appId": "com.pxl.app",
+  "productName": "PXL",
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/favicon.ico"
   },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*"
+  ],
+  "directories": {
+    "output": "release"
+  }
+},
+
+
+
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
